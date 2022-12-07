@@ -1,0 +1,198 @@
+<!DOCTYPE html>
+<!-- https://simplemaps.com/data/us-cities
+ https://observablehq.com/@karlsluis/us-rivers
+ https://eric.clst.org/tech/usgeojson/
+ https://raw.githubusercontent.com/ResidentMario/geoplot-data/master/contiguous-usa.geojson
+ https://github.com/ResidentMario/geoplot-data/blob/master/contiguous-usa.geojson-->
+<html lang="en">
+
+<head>
+    <meta charset="utf-8">
+    <title>Data Vis final project</title>
+    <script src="https://d3js.org/d3.v7.js"></script>
+
+    <style>
+        path {
+            fill: none;
+            stroke-width: 1px;
+            stroke: #222;
+        }
+        body {background-color: #bebebe;}
+    </style>
+</head>
+<body>
+<H2 style="font-family:verdana;">Hypothesis: Seismic Events that occur at a greater depth will have a greater magnitude</H2>
+<H5 style="font-family:verdana;">Squares represent mining explosions, circles represent earthquakes</H5>
+<H5 style="font-family:verdana;">Area is proportional to magnitude. Data is the first 500 earthquakes of 2022 and all the mining explosions recorded in 2022 </H5>
+
+<svg width="900" height="600">
+    <g id = "colorBar" ></g>
+    <g id="whiteRect"></g>
+    <g id="mapLayer"></g>
+    <g id="cityLayer"></g>
+    <g id="riverLayer"></g>
+    <g id ="my_dataviz"></g>
+</svg>
+
+<p style="font-family:verdana; font-size: 10px"> GeoJson US map taken from:  https://github.com/ResidentMario/geoplot-data/blob/master/contiguous-usa.geojson  </p>
+<p style="font-family:verdana; font-size: 10px"> Earthquake data taken from:  https://earthquake.usgs.gov/earthquakes/search/  </p>
+
+<script type="text/javascript">
+
+    var maxpop = .1
+    var minpop = 11
+
+    var colorScale = d3.scaleQuantize()
+        .domain([minpop,maxpop])
+        .range(["#d1edca","#d0ecc9","#cfecc8","#ceecc7","#cdebc6","#ccebc5","#cbeac4","#caeac3","#c9eac2","#c8e9c1","#c6e9c0","#c5e8bf","#c4e8be","#c3e7bd","#c2e7bc","#c1e6bb","#c0e6b9","#bfe6b8","#bee5b7","#bde5b6","#bbe4b5","#bae4b4","#b9e3b3","#b8e3b2","#b7e2b0","#b6e2af","#b5e1ae","#b3e1ad","#b2e0ac","#b1e0ab","#b0dfaa","#aedfa8","#addea7","#acdea6","#abdda5","#aadca4","#a8dca3","#a7dba2","#a6dba0","#a5da9f","#a3da9e","#a2d99d","#a1d99c","#9fd89b","#9ed799","#9dd798","#9bd697","#9ad696","#99d595","#97d494","#96d492","#95d391","#93d390","#92d28f","#91d18e","#8fd18d","#8ed08c","#8ccf8a","#8bcf89","#8ace88","#88cd87","#87cd86","#85cc85","#84cb84","#82cb83","#81ca82","#80c981","#7ec980","#7dc87f","#7bc77e","#7ac77c","#78c67b","#77c57a","#75c479","#74c478","#72c378","#71c277","#6fc276","#6ec175","#6cc074","#6bbf73","#69bf72","#68be71","#66bd70","#65bc6f","#63bc6e","#62bb6e","#60ba6d","#5eb96c","#5db86b","#5bb86a","#5ab769","#58b668","#57b568","#56b467","#54b466","#53b365","#51b264","#50b164","#4eb063","#4daf62","#4caf61","#4aae61","#49ad60","#48ac5f","#46ab5e","#45aa5d","#44a95d","#42a85c","#41a75b","#40a75a","#3fa65a","#3ea559","#3ca458","#3ba357","#3aa257","#39a156","#38a055","#379f54","#369e54","#359d53","#349c52","#339b51","#329a50","#319950","#30984f","#2f974e","#2e964d","#2d954d","#2b944c","#2a934b","#29924a","#28914a","#279049","#268f48","#258f47","#248e47","#238d46","#228c45","#218b44","#208a43","#1f8943","#1e8842","#1d8741","#1c8640","#1b8540","#1a843f","#19833e","#18823d","#17813d","#16803c","#157f3b","#147e3a","#137d3a","#127c39","#117b38","#107a37","#107937","#0f7836","#0e7735","#0d7634","#0c7534","#0b7433","#0b7332","#0a7232","#097131","#087030","#086f2f","#076e2f","#066c2e","#066b2d","#056a2d","#05692c","#04682b","#04672b","#04662a","#03642a","#036329","#026228","#026128","#026027","#025e27","#015d26","#015c25","#015b25","#015a24","#015824","#015723","#005623","#005522","#005321","#005221","#005120","#005020","#004e1f","#004d1f","#004c1e","#004a1e","#00491d","#00481d","#00471c","#00451c","#00441b"]);
+
+    async function cities() {
+        let svg = d3.select("svg");
+        let width = parseInt(svg.attr("width"));
+        let height = parseInt(svg.attr("height"));
+
+
+        let projection = d3.geoAlbersUsa()
+            .translate([width / 2, height / 2])
+            .scale([1200]);
+
+        let path = d3.geoPath()
+            .projection(projection);
+
+        // Load in GeoJSON data
+        //json = await d3.json("countries.geojson");
+        //json = await d3.json("https://raw.githubusercontent.com/Pulsy1577/data_vis_2.io/main/gz_2010_us_040_00_20m.json");
+        json = await d3.json("https://raw.githubusercontent.com/ResidentMario/geoplot-data/master/contiguous-usa.geojson");
+        // Bind data and create one path per GeoJSON feature
+        d3.select("#mapLayer").selectAll("path")
+            .data(json.features)
+            .join("path")
+            // here we use the familiar d attribute again to define the path
+            .attr("d", path);
+
+        var defs = svg.append("defs");
+
+        var linearGradient = defs.append("linearGradient")
+            .attr("id", "linear-gradient")
+            .attr("x1", "0%")
+            .attr("y1", "0%")
+            .attr("x2", "100%")
+            .attr("y2", "0%");
+
+
+        //Set the color for the start (0%)
+        linearGradient.append("stop")
+            .attr("offset", "0%")
+            .attr("stop-color", "#d1edca"); //light blue
+
+//Set the color for the end (100%)
+        linearGradient.append("stop")
+            .attr("offset", "100%")
+            .attr("stop-color", "#00441b"); //dark blue
+
+        svg.append("rect")
+            .attr("width", 800)
+            .attr("height", 20)
+            .attr("x",20)
+            .attr("y", 580)
+            .style("fill", "url(#linear-gradient)");
+
+        svg.append("text")
+            .style("fill","black")
+            .style("font-size","14px")
+            .style("font-weight", "bold")
+            .attr("x", 300)
+            .attr("y", 592)
+            .style("style","label")
+            .text("← [.1]      Depth below surface (km)      [11] →")
+
+
+
+        var tooltip = d3.select("#my_dataviz")
+            .append("div")
+            .style("opacity", 0)
+            .attr("class", "tooltip")
+            .style("background-color", "white")
+            .style("border", "solid")
+            .style("border-width", "1px")
+            .style("border-radius", "5px")
+            .style("padding", "10px")
+
+
+
+        // A function that change this tooltip when the user hover a point.
+        // Its opacity is set to 1: we can now see it. Plus it set the text and position of tooltip depending on the datapoint (d)
+        var mouseover = function(d) {
+            tooltip
+                .style("opacity", 1)
+        }
+
+        var mousemove = function(d) {
+            tooltip
+                .html("The exact value of<br>the Ground Living area is: " + d.GrLivArea)
+                .style("left", (d3.mouse(this)[0]+90) + "px") // It is important to put the +90: other wise the tooltip is exactly where the point is an it creates a weird effect
+                .style("top", (d3.mouse(this)[1]) + "px")
+        }
+
+        // A function that change this tooltip when the leaves a point: just need to set opacity to 0 again
+        var mouseleave = function(d) {
+            tooltip
+                .transition()
+                .duration(200)
+                .style("opacity", 0)
+        }
+
+        //let data = await d3.csv("https://raw.githubusercontent.com/Pulsy1577/Data-Visualization-Project-1/main/Quakes.csv")
+        let data = await d3.csv("real2000.csv")
+        //let data = await d3.csv("Quakes.csv")
+        //let data = await d3.csv("customQuakes.csv")
+
+        d3.select("#cityLayer").selectAll("circle")
+            .data(data)
+            .join("circle")
+            .attr("cx", function (d) {
+                return projection([d.lon, d.lat])[0];
+            })
+            .attr("cy", function (d) {
+                return projection([d.lon, d.lat])[1];
+            })
+            .attr("r", function (d) {
+                return Math.sqrt(parseInt(d.mag) * 40);
+            })
+            .attr("fill", function (d) {
+                return colorScale(d.depth);
+                ;})
+            .style("opacity", 0.9);
+
+        let data1 = await d3.csv("nonQuakes.csv")
+
+        d3.select("#riverLayer").selectAll("rect")
+            .data(data1)
+            .join("rect")
+
+
+            .attr("x", function (d) {
+                return projection([d.lon, d.lat])[0];
+            })
+            .attr("y", function (d) {
+                return projection([d.lon, d.lat])[1];
+            })
+            .attr('width', function (d) {
+                return Math.sqrt(parseInt(d.mag) * 40)
+            })
+            .attr('height', function (d) {
+                return Math.sqrt(parseInt(d.mag) * 40)
+            })
+            .attr("fill", function (d) {
+                return colorScale(d.depth);
+                ;})
+
+            .style("opacity", 0.9);
+
+    }
+    cities();
+
+
+</script>
+</body>
+</html>
